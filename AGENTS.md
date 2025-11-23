@@ -1,9 +1,8 @@
-# Fusion Starter
+# 项目名称：工厂任务单FactoryTodo
+# 项目描述：本程序作为一个ERP系统外的辅助软件，让上层特别关注的生产任务进度一目了然。
+# 功能简介：高管在后台添加任务或者任务清单，工厂各工序负责人会收到任务或清单。当任务于自身工序完成时可以报告完工。任务有完工变动推送消息到任务下发人。计划运行WEB端和手机APP端（后期）。
 
-A production-ready full-stack React application template with integrated Express server, featuring React Router 6 SPA mode, TypeScript, Vitest, Zod and modern tooling.
-
-While the starter comes with a express server, only create endpoint when strictly neccesary, for example to encapsulate logic that must leave in the server, such as private keys handling, or certain DB operations, db...
-
+# 本项目语言设定为中文 
 ## Tech Stack
 
 - **PNPM**: Prefer pnpm
@@ -11,6 +10,10 @@ While the starter comes with a express server, only create endpoint when strictl
 - **Backend**: Express server integrated with Vite dev server
 - **Testing**: Vitest
 - **UI**: Radix UI + TailwindCSS 3 + Lucide React icons
+- **Supabase**: 
+  - **projectURL**: https://kjmwptgjgjykxabeloff.supabase.co    
+  - **APIkey**: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtqbXdwdGdqZ2p5a3hhYmVsb2ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM4Mzc1MzQsImV4cCI6MjA3OTQxMzUzNH0.q0EoTMRyOuC1o81T82UAGlUAWWW338BUqilXHPHi9Co
+- ** Vercel **
 
 ## Project Structure
 
