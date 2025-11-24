@@ -1,25 +1,31 @@
 <?php
 // 登录页面
 session_start();
+require_once 'config/database.php';
+require_once 'includes/functions.php';
 
 // 处理登录表单提交
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'] ?? '';
+    $username = $_POST['username'] ?? '';
     $password = $_POST['password'] ?? '';
     
-    // 简化的登录验证（在实际应用中应该查询数据库验证用户）
-    if (!empty($email) && !empty($password)) {
+    // 验证用户
+    $user = validateUser($username, $password);
+    if ($user) {
         // 设置会话变量
-        $_SESSION['user_email'] = $email;
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['username'] = $user['username'];
+        $_SESSION['full_name'] = $user['full_name'];
         $_SESSION['is_logged_in'] = true;
         
         // 重定向到主页
         header('Location: index.php');
         exit;
     } else {
-        $error = "请填写邮箱和密码";
+        $error = "用户名或密码错误";
     }
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -46,8 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             <form method="POST" class="space-y-6">
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700">邮箱地址</label>
-                    <input type="email" id="email" name="email" required
+                    <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+                    <input type="text" id="username" name="username" required
                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                 </div>
                 

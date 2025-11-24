@@ -1,6 +1,6 @@
 # 工厂任务单系统 (PHP版本)
 
-这是一个使用PHP 8.0 + SQLite + HTML5 + TailwindCSS + jQuery重构的工厂任务单系统。
+使用PHP 8.0 + SQLite + HTML5 + TailwindCSS + jQuery重构的工厂任务单系统。
 
 ## 项目结构
 
@@ -14,12 +14,15 @@ php-project/
 ├── includes/
 │   └── functions.php       # 数据库操作函数
 ├── database/
-│   └── factory_todo.sqlite # SQLite数据库文件（自动生成）
+│   └── factory_todo.db     # SQLite数据库文件（自动生成）
 ├── index.php               # 主入口文件
 ├── login.php               # 登录页面
 ├── logout.php              # 登出页面
 ├── admin.php               # 管理页面
-└── api.php                 # API端点文件
+├── api.php                 # API端点文件
+├── header.php              # 头部文件
+└── footer.php              # 尾部文件
+
 ```
 
 ## 技术栈
@@ -28,6 +31,12 @@ php-project/
 - **数据库**: SQLite
 - **前端**: HTML5, TailwindCSS, jQuery
 - **架构**: 简单的视图和逻辑分离（非MVC模式）
+
+## 运行环境
+- PHP 8.0
+- SQLite
+- Web服务器（如Apache或Nginx）
+- PHP扩展（如PDO SQLite）
 
 ## 功能特性
 
@@ -70,6 +79,14 @@ php-project/
 2. 数据库配置位于`config/database.php`
 3. 前端交互逻辑位于`assets/js/app.js`
 4. 页面路由通过`index.php`的`page`参数控制
+
+### 数据流向：
+ - 用户在前端页面进行操作
+ - app.js捕获用户操作并发送AJAX请求到api.php
+ - api.php验证请求参数并调用functions.php处理业务逻辑
+ - functions.php通过database.php操作数据库
+ - 处理结果通过api.php返回JSON格式响应
+ - app.js接收响应并更新前端界面
 
 ## 注意事项
 

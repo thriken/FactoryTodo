@@ -1,259 +1,303 @@
 // 前端JavaScript文件
 
-$(document).ready(function() {
-    // 页面加载完成后的初始化操作
-    console.log("应用初始化完成");
+// 应用程序主对象
+const App = {
+    // 初始化应用
+    init: function() {
+        console.log("应用初始化完成");
+        this.bindEvents();
+        this.loadInitialData();
+    },
     
-    // 绑定表单提交事件
-    $('#add-user-form').on('submit', function(e) {
-        e.preventDefault();
-        addUser();
-    });
-    
-    $('#add-task-form').on('submit', function(e) {
-        e.preventDefault();
-        addTask();
-    });
-    
-    // 绑定任务状态更新事件
-    $('.update-task-status').on('click', function() {
-        const taskId = $(this).data('task-id');
-        const status = $(this).data('status');
-        updateTaskStatus(taskId, status);
-    });
+    // 绑定事件
+    bindEvents: function() {
+        // 表单提交事件
+        $('#add-user-form').on('submit', function(e) {
+            e.preventDefault();
+            App.addUser();
+        });
+        
+        $('#add-task-form').on('submit', function(e) {
+            e.preventDefault();
+            App.addTask();
+        });
+        
+        $('#add-process-chain-form').on('submit', function(e) {
+            e.preventDefault();
+            App.addProcessChain();
+        });
+        
+        $('#add-step-to-chain-form').on('submit', function(e) {
+            e.preventDefault();
+            App.addStepToChain();
+        });
+        
+        // 任务状态更新事件
+        $('.update-task-status').on('click', function() {
+            const taskId = $(this).data('task-id');
+            const status = $(this).data('status');
+            App.updateTaskStatus(taskId, status);
+        });
+    },
     
     // 加载初始数据
-    loadTasks();
-    loadUsers();
-});
-
-// 添加用户
-function addUser() {
-    const formData = {
-        email: $('#email').val(),
-        full_name: $('#full_name').val(),
-        role: $('#role').val(),
-        department: $('#department').val(),
-        is_main_manager: $('#is_main_manager').is(':checked') ? 1 : 0
-    };
+    loadInitialData: function() {
+        this.loadTasks();
+        this.loadUsers();
+    },
     
-    $.ajax({
-        url: 'api.php?action=add_user',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(formData),
-        success: function(response) {
-            if (response.success) {
-                showMessage('用户添加成功', 'success');
-                // 清空表单
-                $('#add-user-form')[0].reset();
-                // 重新加载用户列表
-                loadUsers();
-            } else {
-                showMessage('用户添加失败: ' + response.error, 'error');
+    // 添加用户
+    addUser: function() {
+        const formData = {
+            username: $('#username').val(),
+            password: $('#password').val(),
+            full_name: $('#full_name').val(),
+            role: $('#role').val(),
+            department: $('#department').val(),
+            action: 'add_user'
+        };
+        
+        console.log('发送添加用户请求:', formData);
+        
+        $.ajax({
+            url: 'api.php',
+            method: 'POST',
+            data: formData,
+            success: function(response) {
+                console.log('添加用户响应:', response);
+                if (response.success) {
+                    alert('用户添加成功');
+                    location.reload();
+                } else {
+                    alert('用户添加失败: ' + response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('添加用户请求失败:', status, error);
+                console.error('响应内容:', xhr.responseText);
+                
+                // 尝试解析响应内容以获取错误信息
+                let errorMessage = '请求失败，请稍后重试';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response && response.error) {
+                        errorMessage = response.error;
+                    }
+                } catch (e) {
+                    // 如果无法解析JSON，检查是否包含特定错误信息
+                    if (xhr.responseText.includes('UNIQUE constraint failed')) {
+                        errorMessage = '用户名已存在，请选择其他用户名';
+                    }
+                }
+                
+                alert('用户添加失败: ' + errorMessage);
             }
-        },
-        error: function(xhr, status, error) {
-            showMessage('请求失败: ' + error, 'error');
-        }
-    });
-}
-
-// 添加任务
-function addTask() {
-    const formData = {
-        title: $('#title').val(),
-        description: $('#description').val(),
-        priority: $('#priority').val(),
-        process_chain_type: $('#process_chain_type').val()
-    };
-    
-    $.ajax({
-        url: 'api.php?action=add_task',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(formData),
-        success: function(response) {
-            if (response.success) {
-                showMessage('任务添加成功', 'success');
-                // 清空表单
-                $('#add-task-form')[0].reset();
-                // 重新加载任务列表
-                loadTasks();
-            } else {
-                showMessage('任务添加失败: ' + response.error, 'error');
-            }
-        },
-        error: function(xhr, status, error) {
-            showMessage('请求失败: ' + error, 'error');
-        }
-    });
-}
-
-// 更新任务状态
-function updateTaskStatus(taskId, status) {
-    const formData = {
-        task_id: taskId,
-        status: status
-    };
-    
-    $.ajax({
-        url: 'api.php?action=update_task_status',
-        method: 'POST',
-        contentType: 'application/json',
-        data: JSON.stringify(formData),
-        success: function(response) {
-            if (response.success) {
-                showMessage('任务状态更新成功', 'success');
-                // 重新加载任务列表
-                loadTasks();
-            } else {
-                showMessage('任务状态更新失败: ' + response.error, 'error');
-            }
-        },
-        error: function(xhr, status, error) {
-            showMessage('请求失败: ' + error, 'error');
-        }
-    });
-}
-
-// 加载任务列表
-function loadTasks() {
-    $.ajax({
-        url: 'api.php?action=tasks',
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                renderTasks(response.data);
-            } else {
-                showMessage('加载任务失败: ' + response.error, 'error');
-            }
-        },
-        error: function(xhr, status, error) {
-            showMessage('请求失败: ' + error, 'error');
-        }
-    });
-}
-
-// 加载用户列表
-function loadUsers() {
-    $.ajax({
-        url: 'api.php?action=users',
-        method: 'GET',
-        success: function(response) {
-            if (response.success) {
-                renderUsers(response.data);
-            } else {
-                showMessage('加载用户失败: ' + response.error, 'error');
-            }
-        },
-        error: function(xhr, status, error) {
-            showMessage('请求失败: ' + error, 'error');
-        }
-    });
-}
-
-// 渲染任务列表
-function renderTasks(tasks) {
-    const tasksContainer = $('#tasks-list');
-    tasksContainer.empty();
-    
-    if (tasks.length === 0) {
-        tasksContainer.html('<p class="text-gray-500">暂无任务</p>');
-        return;
-    }
-    
-    tasks.forEach(function(task) {
-        const taskElement = `
-            <div class="bg-white rounded-lg shadow p-4 mb-4">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <h3 class="text-xl font-semibold">${escapeHtml(task.title)}</h3>
-                        <p class="text-gray-600">${escapeHtml(task.description)}</p>
-                    </div>
-                    <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                        ${escapeHtml(task.status)}
-                    </span>
-                </div>
-                <div class="mt-3 flex space-x-2">
-                    <button class="update-task-status text-xs bg-green-100 text-green-800 px-2 py-1 rounded hover:bg-green-200" 
-                            data-task-id="${task.id}" data-status="completed">
-                        完成
-                    </button>
-                    <button class="update-task-status text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded hover:bg-yellow-200" 
-                            data-task-id="${task.id}" data-status="in-progress">
-                        进行中
-                    </button>
-                </div>
-            </div>
-        `;
-        tasksContainer.append(taskElement);
-    });
-    
-    // 重新绑定事件
-    $('.update-task-status').on('click', function() {
-        const taskId = $(this).data('task-id');
-        const status = $(this).data('status');
-        updateTaskStatus(taskId, status);
-    });
-}
-
-// 渲染用户列表
-function renderUsers(users) {
-    const usersContainer = $('#users-list');
-    usersContainer.empty();
-    
-    if (users.length === 0) {
-        usersContainer.html('<p class="text-gray-500">暂无用户</p>');
-        return;
-    }
-    
-    users.forEach(function(user) {
-        const userElement = `
-            <div class="bg-white rounded-lg shadow p-4 mb-4">
-                <div class="flex justify-between items-start">
-                    <div>
-                        <h3 class="text-xl font-semibold">${escapeHtml(user.full_name)}</h3>
-                        <p class="text-gray-600">${escapeHtml(user.email)}</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                            ${escapeHtml(user.role)}
-                        </span>
-                        <p class="text-xs text-gray-500 mt-1">${user.is_main_manager ? '主负责人' : '普通员工'}</p>
-                    </div>
-                </div>
-            </div>
-        `;
-        usersContainer.append(userElement);
-    });
-}
-
-// 显示消息
-function showMessage(message, type) {
-    const messageClass = type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-    const messageElement = `
-        <div class="fixed top-4 right-4 px-4 py-3 rounded ${messageClass} shadow-lg z-50" id="flash-message">
-            ${escapeHtml(message)}
-        </div>
-    `;
-    
-    $('body').append(messageElement);
-    
-    // 3秒后自动消失
-    setTimeout(function() {
-        $('#flash-message').fadeOut(function() {
-            $(this).remove();
         });
-    }, 3000);
-}
+    },
+    
+    // 添加任务
+    addTask: function() {
+        const formData = {
+            title: $('#task_title').val(),
+            description: $('#description').val(),
+            priority: $('#priority').val(),
+            assignee_id: $('#assignee_id').val(),
+            action: 'add_task'
+        };
+        
+        $.ajax({
+            url: 'api.php',
+            method: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    alert('任务添加成功');
+                    location.reload();
+                } else {
+                    alert('任务添加失败: ' + response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('添加任务请求失败:', status, error);
+                console.error('响应内容:', xhr.responseText);
+                alert('请求失败，请稍后重试');
+            }
+        });
+    },
+    
+    // 添加工序链
+    addProcessChain: function() {
+        const formData = {
+            name: $('#chain_name').val(),
+            enabled: $('#chain_enabled').is(':checked') ? 1 : 0,
+            action: 'add_process_chain'
+        };
+        
+        $.ajax({
+            url: 'api.php',
+            method: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    alert('工序链添加成功');
+                    location.reload();
+                } else {
+                    alert('工序链添加失败: ' + response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('添加工序链请求失败:', status, error);
+                console.error('响应内容:', xhr.responseText);
+                alert('请求失败，请稍后重试');
+            }
+        });
+    },
+    
+    // 为工序链添加步骤
+    addStepToChain: function() {
+        const formData = {
+            chain_id: $('#chain_id').val(),
+            step_key: $('#step_key').val(),
+            order: $('#step_order').val(),
+            action: 'add_step_to_chain'
+        };
+        
+        $.ajax({
+            url: 'api.php',
+            method: 'POST',
+            data: formData,
+            success: function(response) {
+                if (response.success) {
+                    alert('工序步骤添加成功');
+                    location.reload();
+                } else {
+                    alert('工序步骤添加失败: ' + response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('添加工序步骤请求失败:', status, error);
+                console.error('响应内容:', xhr.responseText);
+                alert('请求失败，请稍后重试');
+            }
+        });
+    },
+    
+    // 更新任务状态
+    updateTaskStatus: function(taskId, status) {
+        $.ajax({
+            url: 'api.php',
+            method: 'POST',
+            data: {
+                task_id: taskId,
+                status: status,
+                action: 'update_task_status'
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('任务状态更新成功');
+                    location.reload();
+                } else {
+                    alert('任务状态更新失败: ' + response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('更新任务状态请求失败:', status, error);
+                console.error('响应内容:', xhr.responseText);
+                alert('请求失败，请稍后重试');
+            }
+        });
+    },
+    
+    // 加载任务
+    loadTasks: function() {
+        $.ajax({
+            url: 'api.php',
+            method: 'GET',
+            data: { action: 'tasks' },
+            success: function(response) {
+                if (response.success) {
+                    console.log('任务数据加载成功', response.data);
+                } else {
+                    console.error('任务数据加载失败', response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('加载任务请求失败:', status, error);
+                console.error('响应内容:', xhr.responseText);
+            }
+        });
+    },
+    
+    // 加载用户
+    loadUsers: function() {
+        $.ajax({
+            url: 'api.php',
+            method: 'GET',
+            data: { action: 'users' },
+            success: function(response) {
+                if (response.success) {
+                    console.log('用户数据加载成功', response.data);
+                } else {
+                    console.error('用户数据加载失败', response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('加载用户请求失败:', status, error);
+                console.error('响应内容:', xhr.responseText);
+            }
+        });
+    },
+    
+    // 显示名称转换函数
+    getDisplayName: function(value, type) {
+        const mappings = {
+            roles: {
+                'super-admin': '超级管理员',
+                'boss': '高管',
+                'customer-service': '客服',
+                'process-manager': '负责人',
+                'observer': '员工'
+            },
+            departments: {
+                'cutting': '切割',
+                'tempering': '钢化',
+                'laminating': '夹层',
+                'insulating': '中空',
+                'warehouse': '仓库',
+                'packing': '包装',
+                'shipping': '发货',
+                'qc': '质检',
+                'admin': '管理'
+            },
+            processingSteps: {
+                'cutting': '切割',
+                'tempering': '钢化',
+                'laminating': '夹层',
+                'insulating': '中空',
+                'warehouse': '仓库',
+                'packing': '包装',
+                'shipping': '发货',
+                'qc': '质检'
+            },
+            status: {
+                'pending': '待处理',
+                'in-progress': '进行中',
+                'completed': '已完成'
+            },
+            priority: {
+                'critical': '不惜一切代价',
+                'urgent': '特急',
+                'high': '优先',
+                'medium': '加急',
+                'low': '普通'
+            }
+        };
+        
+        return mappings[type] && mappings[type][value] ? mappings[type][value] : value;
+    }
+};
 
-// 转义HTML特殊字符
-function escapeHtml(text) {
-    return text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+// 页面加载完成后初始化应用
+$(document).ready(function() {
+    App.init();
+});
