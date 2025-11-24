@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['full_name'] = $user['full_name'];
+        $_SESSION['role'] = $user['role'];
         $_SESSION['is_logged_in'] = true;
         
         // 重定向到主页

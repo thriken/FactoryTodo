@@ -51,7 +51,9 @@ const PROCESSING_STEPS = [
 const PROCESS_STATUS = [
     'pending' => '待处理',
     'in-progress' => '进行中',
-    'completed' => '已完成'
+    'completed' => '已完成',
+    'cancelled' => '已中止',
+    'void' => '已作废'
 ];
 
 // 优先级

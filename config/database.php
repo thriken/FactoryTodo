@@ -93,7 +93,7 @@ class Database {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 title TEXT NOT NULL,
                 description TEXT,
-                status TEXT CHECK (status IN ('pending', 'in-progress', 'completed')) DEFAULT 'pending',
+                status TEXT CHECK (status IN ('pending', 'in-progress', 'completed', 'cancelled', 'void')) DEFAULT 'pending',
                 created_by INTEGER REFERENCES users(id),
                 assigned_to INTEGER REFERENCES users(id),
                 due_date DATETIME,

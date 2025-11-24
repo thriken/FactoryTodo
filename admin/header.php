@@ -1,6 +1,6 @@
 <?php
 // 头部文件
-require_once 'config/config.php';
+require_once '../config/config.php';
 ?>
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -10,7 +10,6 @@ require_once 'config/config.php';
     <title><?= htmlspecialchars($title ?? '工厂任务单系统') ?></title>
     <link href="https://lib.baomitu.com/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="assets/js/app.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex flex-col">
 <header class="bg-white shadow">
@@ -20,10 +19,9 @@ require_once 'config/config.php';
             <?php if (isset($_SESSION['is_logged_in']) && $_SESSION['is_logged_in']): ?>
                 <div class="flex items-center space-x-4">
                     <span class="text-gray-600">欢迎, <?= htmlspecialchars($_SESSION['full_name'] ?? '用户') ?></span>
-                    <?php if (DEBUG_MODE): ?>
-                        <a href="debug.php" class="text-red-600 hover:underline">调试</a>
-                    <?php endif; ?>
-                    <a href="logout.php" class="text-blue-600 hover:underline">登出</a>
+                    <a href="users.php" class="text-red-600 hover:underline">用户管理</a>
+                    <a href="process-chains.php" class="text-red-600 hover:underline">工序链管理</a>
+                    <a href="../logout.php" class="text-blue-600 hover:underline">登出</a>
                 </div>
             <?php endif; ?>
         </div>

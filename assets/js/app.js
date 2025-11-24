@@ -1,5 +1,4 @@
 // 前端JavaScript文件
-
 // 应用程序主对象
 const App = {
     // 初始化应用
@@ -20,16 +19,6 @@ const App = {
         $('#add-task-form').on('submit', function(e) {
             e.preventDefault();
             App.addTask();
-        });
-        
-        $('#add-process-chain-form').on('submit', function(e) {
-            e.preventDefault();
-            App.addProcessChain();
-        });
-        
-        $('#add-step-to-chain-form').on('submit', function(e) {
-            e.preventDefault();
-            App.addStepToChain();
         });
         
         // 任务状态更新事件
@@ -101,7 +90,7 @@ const App = {
             title: $('#task_title').val(),
             description: $('#description').val(),
             priority: $('#priority').val(),
-            assignee_id: $('#assignee_id').val(),
+            process_chain_id: $('#assignee_id').val(),
             action: 'add_task'
         };
         
@@ -119,63 +108,6 @@ const App = {
             },
             error: function(xhr, status, error) {
                 console.error('添加任务请求失败:', status, error);
-                console.error('响应内容:', xhr.responseText);
-                alert('请求失败，请稍后重试');
-            }
-        });
-    },
-    
-    // 添加工序链
-    addProcessChain: function() {
-        const formData = {
-            name: $('#chain_name').val(),
-            enabled: $('#chain_enabled').is(':checked') ? 1 : 0,
-            action: 'add_process_chain'
-        };
-        
-        $.ajax({
-            url: 'api.php',
-            method: 'POST',
-            data: formData,
-            success: function(response) {
-                if (response.success) {
-                    alert('工序链添加成功');
-                    location.reload();
-                } else {
-                    alert('工序链添加失败: ' + response.error);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('添加工序链请求失败:', status, error);
-                console.error('响应内容:', xhr.responseText);
-                alert('请求失败，请稍后重试');
-            }
-        });
-    },
-    
-    // 为工序链添加步骤
-    addStepToChain: function() {
-        const formData = {
-            chain_id: $('#chain_id').val(),
-            step_key: $('#step_key').val(),
-            order: $('#step_order').val(),
-            action: 'add_step_to_chain'
-        };
-        
-        $.ajax({
-            url: 'api.php',
-            method: 'POST',
-            data: formData,
-            success: function(response) {
-                if (response.success) {
-                    alert('工序步骤添加成功');
-                    location.reload();
-                } else {
-                    alert('工序步骤添加失败: ' + response.error);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('添加工序步骤请求失败:', status, error);
                 console.error('响应内容:', xhr.responseText);
                 alert('请求失败，请稍后重试');
             }
@@ -282,7 +214,9 @@ const App = {
             status: {
                 'pending': '待处理',
                 'in-progress': '进行中',
-                'completed': '已完成'
+                'completed': '已完成',
+                'cancelled': '已中止',
+                'void': '已作废'
             },
             priority: {
                 'critical': '不惜一切代价',

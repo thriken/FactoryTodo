@@ -9,6 +9,27 @@ require_once __DIR__ . '/../config/config.php';
 $db = new Database();
 $pdo = $db->getPdo();
 
+// 检查用户是否为超级管理员
+function isSuperAdmin($userRole) {
+    return $userRole === 'super-admin';
+}
+
+// 检查用户是否有管理权限
+function hasAdminAccess($userRole) {
+    // 只有超级管理员有管理权限
+    return isSuperAdmin($userRole);
+}
+
+// 检查用户是否可以修改任务进度（只有员工和负责人才能修改进度）
+function canUpdateTaskProgress($userRole) {
+    return in_array($userRole, ['process-manager', 'observer']);
+}
+
+// 检查用户是否可以创建/中止/作废任务（管理角色可以）
+function canManageTasks($userRole) {
+    return in_array($userRole, ['super-admin', 'boss', 'customer-service']);
+}
+
 // 获取所有任务
 function getAllTasks() {
     global $db;
@@ -20,6 +41,60 @@ function getAllTasks() {
         return [];
     } catch (PDOException $e) {
         logError("获取任务失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return [];
+    }
+}
+
+// 获取当前用户工序的任务（过滤掉已完成的任务）
+function getTasksForCurrentUserProcess($userId) {
+    global $db;
+    try {
+        // 获取用户信息
+        $user = getUserById($userId);
+        if (!$user) {
+            return [];
+        }
+        
+        $department = $user['department'];
+        
+        // 获取所有工序链
+        $chains = getAllProcessChains();
+        $filteredChainIds = [];
+        
+        // 筛选出包含当前部门工序的工序链
+        foreach ($chains as $chain) {
+            $steps = getProcessChainSteps($chain['id']);
+            foreach ($steps as $step) {
+                if ($step['step_key'] == $department) {
+                    $filteredChainIds[] = $chain['id'];
+                    break;
+                }
+            }
+        }
+        
+        if (empty($filteredChainIds)) {
+            return [];
+        }
+        
+        // 构建查询，只获取当前工序的任务，并且状态不是已完成的
+        $placeholders = str_repeat('?,', count($filteredChainIds) - 1) . '?';
+        $sql = "SELECT * FROM todos 
+                WHERE process_chain_type IN ($placeholders) 
+                AND status != 'completed' 
+                AND status != 'cancelled' 
+                AND status != 'void'
+                ORDER BY created_at DESC";
+        
+        $stmt = $db->debugQuery($sql, $filteredChainIds);
+        if ($stmt) {
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        return [];
+    } catch (PDOException $e) {
+        logError("获取当前用户工序任务失败: " . $e->getMessage());
         if (DEBUG_MODE) {
             throw $e;
         }
@@ -175,7 +250,7 @@ function validateUser($username, $password) {
 }
 
 // 添加新任务
-function addTask($title, $description, $createdBy, $assignedTo = null, $priority = 'medium', $processChainType = 'single') {
+function addTask($title, $description, $priority = 'medium', $processChainId = null) {
     global $db;
     try {
         // 验证优先级是否有效
@@ -183,8 +258,8 @@ function addTask($title, $description, $createdBy, $assignedTo = null, $priority
             throw new Exception("无效的优先级: $priority");
         }
         
-        $stmt = $db->debugQuery("INSERT INTO todos (title, description, created_by, assigned_to, priority, process_chain_type) VALUES (?, ?, ?, ?, ?, ?)", 
-                               [$title, $description, $createdBy, $assignedTo, $priority, $processChainType]);
+        $stmt = $db->debugQuery("INSERT INTO todos (title, description, priority, process_chain_type) VALUES (?, ?, ?, ?)", 
+                               [$title, $description, $priority, $processChainId]);
         if ($stmt) {
             return $db->getPdo()->lastInsertId();
         }
@@ -209,7 +284,7 @@ function updateTaskStatus($taskId, $status) {
     global $db;
     try {
         // 验证状态是否有效
-        if (!array_key_exists($status, PROCESS_STATUS)) {
+        if (!array_key_exists($status, PROCESS_STATUS) && !in_array($status, ['cancelled', 'void'])) {
             throw new Exception("无效的状态: $status");
         }
         
@@ -346,6 +421,42 @@ function addProcessChain($name, $enabled = true) {
     }
 }
 
+// 更新工序链
+function updateProcessChain($id, $name, $enabled) {
+    global $db;
+    try {
+        $stmt = $db->debugQuery("UPDATE process_chains SET name = ?, enabled = ? WHERE id = ?", [$name, $enabled ? 1 : 0, $id]);
+        if ($stmt) {
+            return $stmt->rowCount() > 0;
+        }
+        return false;
+    } catch (PDOException $e) {
+        logError("更新工序链失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return false;
+    }
+}
+
+// 删除工序链
+function deleteProcessChain($id) {
+    global $db;
+    try {
+        $stmt = $db->debugQuery("DELETE FROM process_chains WHERE id = ?", [$id]);
+        if ($stmt) {
+            return $stmt->rowCount() > 0;
+        }
+        return false;
+    } catch (PDOException $e) {
+        logError("删除工序链失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return false;
+    }
+}
+
 // 为工序链添加步骤
 function addStepToProcessChain($chainId, $stepKey, $order) {
     global $db;
@@ -375,14 +486,60 @@ function addStepToProcessChain($chainId, $stepKey, $order) {
     }
 }
 
+// 更新工序链步骤
+function updateProcessChainStep($stepId, $stepKey, $order) {
+    global $db;
+    try {
+        // 验证工序步骤是否有效
+        if (!array_key_exists($stepKey, PROCESSING_STEPS)) {
+            throw new Exception("无效的工序步骤: $stepKey");
+        }
+        
+        $stmt = $db->debugQuery("UPDATE process_chain_steps SET step_key = ?, 'order' = ? WHERE id = ?", [$stepKey, $order, $stepId]);
+        if ($stmt) {
+            return $stmt->rowCount() > 0;
+        }
+        return false;
+    } catch (PDOException $e) {
+        logError("更新工序链步骤失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return false;
+    } catch (Exception $e) {
+        logError("更新工序链步骤失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return false;
+    }
+}
+
+// 删除工序链步骤
+function deleteProcessChainStep($stepId) {
+    global $db;
+    try {
+        $stmt = $db->debugQuery("DELETE FROM process_chain_steps WHERE id = ?", [$stepId]);
+        if ($stmt) {
+            return $stmt->rowCount() > 0;
+        }
+        return false;
+    } catch (PDOException $e) {
+        logError("删除工序链步骤失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return false;
+    }
+}
+
 // 获取工序链的步骤
 function getProcessChainSteps($chainId) {
     global $db;
     try {
-        $stmt = $db->debugQuery("SELECT pcs.*, ps.step_key as step_name
-                              FROM process_chain_steps pcs 
-                              WHERE pcs.chain_id = ? 
-                              ORDER BY pcs.'order' ASC", [$chainId]);
+        $stmt = $db->debugQuery("SELECT * FROM process_chain_steps 
+                              WHERE chain_id = ? 
+                              ORDER BY 'order' ASC", [$chainId]);
         if ($stmt) {
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
@@ -393,6 +550,89 @@ function getProcessChainSteps($chainId) {
             throw $e;
         }
         return [];
+    }
+}
+
+// 获取已完成任务
+function getCompletedTasks() {
+    global $db;
+    try {
+        $stmt = $db->debugQuery("SELECT * FROM todos WHERE status = 'completed' ORDER BY updated_at DESC");
+        if ($stmt) {
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        return [];
+    } catch (PDOException $e) {
+        logError("获取已完成任务失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return [];
+    }
+}
+
+// 获取工序链中各工序的完成状态
+function getProcessChainStepStatuses($taskId, $chainId) {
+    global $db;
+    try {
+        // 获取工序链步骤
+        $steps = getProcessChainSteps($chainId);
+        $stepStatuses = [];
+        
+        // 对于每个步骤，检查是否有对应的任务步骤已完成
+        foreach ($steps as $step) {
+            $stepKey = $step['step_key'];
+            
+            // 查询是否有对应的任务步骤已完成
+            $stmt = $db->debugQuery("SELECT * FROM todo_steps 
+                                    WHERE todo_id = ? 
+                                    AND step_key = ? 
+                                    AND status = 'completed'", 
+                                   [$taskId, $stepKey]);
+            
+            if ($stmt && $stmt->fetch()) {
+                $stepStatuses[$stepKey] = 'completed';
+            } else {
+                // 检查是否有进行中的任务步骤
+                $stmt = $db->debugQuery("SELECT * FROM todo_steps 
+                                        WHERE todo_id = ? 
+                                        AND step_key = ? 
+                                        AND status = 'in-progress'", 
+                                       [$taskId, $stepKey]);
+                
+                if ($stmt && $stmt->fetch()) {
+                    $stepStatuses[$stepKey] = 'in-progress';
+                } else {
+                    $stepStatuses[$stepKey] = 'pending';
+                }
+            }
+        }
+        
+        return $stepStatuses;
+    } catch (PDOException $e) {
+        logError("获取工序链步骤状态失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return [];
+    }
+}
+
+// 根据ID获取工序链
+function getProcessChainById($chainId) {
+    global $db;
+    try {
+        $stmt = $db->debugQuery("SELECT * FROM process_chains WHERE id = ?", [$chainId]);
+        if ($stmt) {
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+        return null;
+    } catch (PDOException $e) {
+        logError("获取工序链失败: " . $e->getMessage());
+        if (DEBUG_MODE) {
+            throw $e;
+        }
+        return false;
     }
 }
 

@@ -59,6 +59,66 @@ function handleGetRequest($action) {
             echo json_encode(['success' => true, 'data' => $chains]);
             break;
             
+        case 'get_chain_steps':
+            $chainId = $_GET['chain_id'] ?? '';
+            
+            // 验证参数
+            if (empty($chainId)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '缺少工序链ID']);
+                if (DEBUG_MODE) {
+                    logError("获取工序链步骤失败: 缺少工序链ID");
+                }
+                return;
+            }
+            
+            // 获取工序链步骤
+            $steps = getProcessChainSteps($chainId);
+            if ($steps === false) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '获取工序链步骤失败']);
+                if (DEBUG_MODE) {
+                    logError("获取工序链步骤失败: 数据库查询错误");
+                }
+                return;
+            }
+            
+            echo json_encode(['success' => true, 'data' => $steps]);
+            break;
+            
+        case 'get_process_chain':
+            $chainId = $_GET['chain_id'] ?? '';
+            
+            // 验证参数
+            if (empty($chainId)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '缺少工序链ID']);
+                if (DEBUG_MODE) {
+                    logError("获取工序链信息失败: 缺少工序链ID");
+                }
+                return;
+            }
+            
+            // 获取工序链信息
+            $chain = getProcessChainById($chainId);
+            if ($chain === false) {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '获取工序链信息失败']);
+                if (DEBUG_MODE) {
+                    logError("获取工序链信息失败: 数据库查询错误");
+                }
+                return;
+            }
+            
+            if ($chain === null) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => '工序链不存在']);
+                return;
+            }
+            
+            echo json_encode(['success' => true, 'data' => $chain]);
+            break;
+            
         case 'clear_logs':
             // 清空日志文件
             if (defined('LOG_FILE') && file_exists(LOG_FILE)) {
@@ -136,7 +196,7 @@ function handlePostRequest($action) {
             $title = $_POST['title'] ?? '';
             $description = $_POST['description'] ?? '';
             $priority = $_POST['priority'] ?? 'medium';
-            $assigneeId = $_POST['assignee_id'] ?? null;
+            $processChainId = $_POST['process_chain_id'] ?? null;
             
             // 验证必填字段
             if (empty($title)) {
@@ -158,7 +218,20 @@ function handlePostRequest($action) {
                 return;
             }
             
-            $taskId = addTask($title, $description, $priority, $assigneeId);
+            // 如果指定了工序链，验证工序链是否存在
+            if ($processChainId) {
+                $chain = getProcessChainById($processChainId);
+                if (!$chain) {
+                    http_response_code(400);
+                    echo json_encode(['success' => false, 'error' => '指定的工序链不存在']);
+                    if (DEBUG_MODE) {
+                        logError("添加任务失败: 工序链不存在 $processChainId");
+                    }
+                    return;
+                }
+            }
+            
+            $taskId = addTask($title, $description, $priority, $processChainId);
             if ($taskId) {
                 echo json_encode(['success' => true, 'data' => ['id' => $taskId]]);
             } else {
@@ -192,6 +265,58 @@ function handlePostRequest($action) {
                 echo json_encode(['success' => false, 'error' => '添加工序链失败']);
                 if (DEBUG_MODE) {
                     logError("添加工序链失败: 数据库操作失败");
+                }
+            }
+            break;
+            
+        case 'update_process_chain':
+            $id = $_POST['id'] ?? '';
+            $name = $_POST['name'] ?? '';
+            $enabled = isset($_POST['enabled']) ? true : false;
+            
+            // 验证必填字段
+            if (empty($id) || empty($name)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '缺少必要参数']);
+                if (DEBUG_MODE) {
+                    logError("更新工序链失败: 缺少必要参数");
+                }
+                return;
+            }
+            
+            $result = updateProcessChain($id, $name, $enabled);
+            if ($result) {
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '更新工序链失败']);
+                if (DEBUG_MODE) {
+                    logError("更新工序链失败: 数据库操作失败");
+                }
+            }
+            break;
+            
+        case 'delete_process_chain':
+            $id = $_POST['id'] ?? '';
+            
+            // 验证必填字段
+            if (empty($id)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '缺少工序链ID']);
+                if (DEBUG_MODE) {
+                    logError("删除工序链失败: 缺少工序链ID");
+                }
+                return;
+            }
+            
+            $result = deleteProcessChain($id);
+            if ($result) {
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '删除工序链失败']);
+                if (DEBUG_MODE) {
+                    logError("删除工序链失败: 数据库操作失败");
                 }
             }
             break;
@@ -233,6 +358,68 @@ function handlePostRequest($action) {
             }
             break;
             
+        case 'update_chain_step':
+            $stepId = $_POST['step_id'] ?? '';
+            $stepKey = $_POST['step_key'] ?? '';
+            $order = $_POST['order'] ?? 0;
+            
+            // 验证必填字段
+            if (empty($stepId) || empty($stepKey)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '请选择工序步骤']);
+                if (DEBUG_MODE) {
+                    logError("更新工序步骤失败: 工序步骤为空");
+                }
+                return;
+            }
+            
+            // 验证工序步骤是否有效
+            if (!array_key_exists($stepKey, PROCESSING_STEPS)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '无效的工序步骤']);
+                if (DEBUG_MODE) {
+                    logError("更新工序步骤失败: 无效的工序步骤 $stepKey");
+                }
+                return;
+            }
+            
+            $result = updateProcessChainStep($stepId, $stepKey, $order);
+            if ($result) {
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '更新工序步骤失败']);
+                if (DEBUG_MODE) {
+                    logError("更新工序步骤失败: 数据库操作失败");
+                }
+            }
+            break;
+            
+        case 'delete_chain_step':
+            $stepId = $_POST['step_id'] ?? '';
+            
+            // 验证必填字段
+            if (empty($stepId)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '缺少工序步骤ID']);
+                if (DEBUG_MODE) {
+                    logError("删除工序步骤失败: 缺少工序步骤ID");
+                }
+                return;
+            }
+            
+            $result = deleteProcessChainStep($stepId);
+            if ($result) {
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '删除工序步骤失败']);
+                if (DEBUG_MODE) {
+                    logError("删除工序步骤失败: 数据库操作失败");
+                }
+            }
+            break;
+            
         case 'update_task_status':
             $taskId = $_POST['task_id'] ?? '';
             $status = $_POST['status'] ?? '';
@@ -248,13 +435,39 @@ function handlePostRequest($action) {
             }
             
             // 验证状态是否有效
-            if (!array_key_exists($status, PROCESS_STATUS)) {
+            if (!array_key_exists($status, PROCESS_STATUS) && !in_array($status, ['cancelled', 'void'])) {
                 http_response_code(400);
                 echo json_encode(['success' => false, 'error' => '无效的状态']);
                 if (DEBUG_MODE) {
                     logError("更新任务状态失败: 无效的状态 $status");
                 }
                 return;
+            }
+            
+            // 检查用户权限
+            if (isset($_SESSION['role'])) {
+                // 如果是进度更新操作，检查用户是否有权限更新进度
+                if (in_array($status, ['in-progress', 'completed'])) {
+                    if (!canUpdateTaskProgress($_SESSION['role'])) {
+                        http_response_code(403);
+                        echo json_encode(['success' => false, 'error' => '您没有权限更新任务进度']);
+                        if (DEBUG_MODE) {
+                            logError("更新任务状态失败: 用户没有权限更新任务进度 " . $_SESSION['role']);
+                        }
+                        return;
+                    }
+                }
+                // 如果是管理操作，检查用户是否有管理权限
+                elseif (in_array($status, ['cancelled', 'void'])) {
+                    if (!canManageTasks($_SESSION['role'])) {
+                        http_response_code(403);
+                        echo json_encode(['success' => false, 'error' => '您没有权限管理任务']);
+                        if (DEBUG_MODE) {
+                            logError("更新任务状态失败: 用户没有权限管理任务 " . $_SESSION['role']);
+                        }
+                        return;
+                    }
+                }
             }
             
             $result = updateTaskStatus($taskId, $status);
