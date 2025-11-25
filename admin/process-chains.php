@@ -182,48 +182,5 @@ $allProcessChains = getAllProcessChains();
     
     <!-- 引入管理页面专用的JavaScript文件 -->
     <script src="js/admin.js"></script>
-    <script>
-    // 页面加载完成后初始化
-    document.addEventListener('DOMContentLoaded', function() {
-        // 绑定表单提交事件
-        document.getElementById('add-process-chain-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            addProcessChain();
-        });
-        
-        document.getElementById('update-process-chain-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            updateProcessChain();
-        });
-    });
-    
-    // 添加工序链
-    function addProcessChain() {
-        const formData = {
-            name: document.getElementById('chain_name').value,
-            enabled: document.getElementById('chain_enabled').checked ? 1 : 0,
-            action: 'add_process_chain'
-        };
-        
-        // 发送AJAX请求添加工序链
-        $.ajax({
-            url: '../api.php',
-            method: 'POST',
-            data: formData,
-            success: function(response) {
-                if (response.success) {
-                    alert('工序链添加成功');
-                    location.reload();
-                } else {
-                    alert('工序链添加失败: ' + response.error);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('添加工序链请求失败:', status, error);
-                alert('请求失败，请稍后重试');
-            }
-        });
-    }
-    </script>
 </body>
 </html>

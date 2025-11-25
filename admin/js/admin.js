@@ -46,9 +46,11 @@ function getRolesByDepartment(department) {
 }
 
 // 更新角色下拉列表
-function updateRoleOptions() {
-    const departmentSelect = document.getElementById('department');
-    const roleSelect = document.getElementById('role');
+function updateRoleOptions(selectElement = null) {
+    const departmentSelect = selectElement || document.getElementById('department');
+    const roleSelect = departmentSelect.id === 'department' ? 
+        document.getElementById('role') : 
+        document.getElementById('edit-role');
     const selectedDepartment = departmentSelect.value;
     
     // 清空现有选项
@@ -64,6 +66,157 @@ function updateRoleOptions() {
         option.textContent = roleName;
         roleSelect.appendChild(option);
     }
+}
+
+// 添加用户
+function addUser() {
+    const formData = {
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value,
+        full_name: document.getElementById('full_name').value,
+        role: document.getElementById('role').value,
+        department: document.getElementById('department').value,
+        is_main_manager: document.getElementById('is_main_manager').checked ? 1 : 0,
+        action: 'add_user'
+    };
+    
+    // 发送AJAX请求添加用户
+    $.ajax({
+        url: '../api.php',
+        method: 'POST',
+        data: formData,
+        success: function(response) {
+            if (response.success) {
+                alert('用户添加成功');
+                location.reload();
+            } else {
+                alert('用户添加失败: ' + response.error);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('添加用户请求失败:', status, error);
+            console.error('响应内容:', xhr.responseText);
+            
+            // 尝试解析响应内容以获取错误信息
+            let errorMessage = '请求失败，请稍后重试';
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response && response.error) {
+                    errorMessage = response.error;
+                }
+            } catch (e) {
+                // 如果无法解析JSON，检查是否包含特定错误信息
+                if (xhr.responseText.includes('UNIQUE constraint failed')) {
+                    errorMessage = '用户名已存在，请选择其他用户名';
+                }
+            }
+            
+            alert('用户添加失败: ' + errorMessage);
+        }
+    });
+}
+
+// 更新用户
+function updateUser() {
+    const formData = {
+        user_id: document.getElementById('edit-user-id').value,
+        username: document.getElementById('edit-username').value,
+        full_name: document.getElementById('edit-full_name').value,
+        role: document.getElementById('edit-role').value,
+        department: document.getElementById('edit-department').value,
+        is_main_manager: document.getElementById('edit-is_main_manager').checked ? 1 : 0,
+        action: 'update_user'
+    };
+    
+    // 发送AJAX请求更新用户
+    $.ajax({
+        url: '../api.php',
+        method: 'POST',
+        data: formData,
+        success: function(response) {
+            if (response.success) {
+                alert('用户更新成功');
+                location.reload();
+            } else {
+                alert('用户更新失败: ' + response.error);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('更新用户请求失败:', status, error);
+            console.error('响应内容:', xhr.responseText);
+            
+            // 尝试解析响应内容以获取错误信息
+            let errorMessage = '请求失败，请稍后重试';
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response && response.error) {
+                    errorMessage = response.error;
+                }
+            } catch (e) {
+                // 如果无法解析JSON，检查是否包含特定错误信息
+                if (xhr.responseText.includes('UNIQUE constraint failed')) {
+                    errorMessage = '用户名已存在，请选择其他用户名';
+                }
+            }
+            
+            alert('用户更新失败: ' + errorMessage);
+        }
+    });
+}
+
+// 删除用户
+function deleteUser(userId, username) {
+    if (confirm('确定要删除用户 ' + username + ' 吗？')) {
+        // 发送AJAX请求删除用户
+        $.ajax({
+            url: '../api.php',
+            method: 'POST',
+            data: {
+                user_id: userId,
+                action: 'delete_user'
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert('用户已删除');
+                    location.reload();
+                } else {
+                    alert('删除用户失败: ' + response.error);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('删除用户请求失败:', status, error);
+                alert('请求失败，请稍后重试');
+            }
+        });
+    }
+}
+
+// 添加工序链
+function addProcessChain() {
+    const formData = {
+        name: document.getElementById('chain_name').value,
+        enabled: document.getElementById('chain_enabled').checked ? 1 : 0,
+        action: 'add_process_chain'
+    };
+    
+    // 发送AJAX请求添加工序链
+    $.ajax({
+        url: '../api.php',
+        method: 'POST',
+        data: formData,
+        success: function(response) {
+            if (response.success) {
+                alert('工序链添加成功');
+                location.reload();
+            } else {
+                alert('工序链添加失败: ' + response.error);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('添加工序链请求失败:', status, error);
+            alert('请求失败，请稍后重试');
+        }
+    });
 }
 
 // 加载工序链步骤
@@ -303,6 +456,55 @@ function handleStepFormSubmit(event) {
     });
 }
 
+// 更新任务状态
+function updateTaskStatus(taskId, status) {
+    $.ajax({
+        url: '../api.php',
+        method: 'POST',
+        data: {
+            task_id: taskId,
+            status: status,
+            action: 'update_task_status'
+        },
+        success: function(response) {
+            if (response.success) {
+                alert('任务状态更新成功');
+                location.reload();
+            } else {
+                alert('任务状态更新失败: ' + response.error);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('更新任务状态请求失败:', status, error);
+            console.error('响应内容:', xhr.responseText);
+            
+            // 尝试解析响应内容以获取错误信息
+            let errorMessage = '请求失败，请稍后重试';
+            try {
+                const response = JSON.parse(xhr.responseText);
+                if (response && response.error) {
+                    errorMessage = response.error;
+                }
+            } catch (e) {
+                // 如果无法解析JSON，检查是否包含特定错误信息
+                if (xhr.responseText.includes('Fatal error')) {
+                    // 从HTML错误信息中提取错误消息
+                    const match = xhr.responseText.match(/Uncaught Exception: (.+?) in/);
+                    if (match && match[1]) {
+                        errorMessage = match[1];
+                    } else {
+                        errorMessage = '系统错误，请稍后重试';
+                    }
+                } else if (xhr.responseText.includes('UNIQUE constraint failed')) {
+                    errorMessage = '用户名已存在，请选择其他用户名';
+                }
+            }
+            
+            alert('任务状态更新失败: ' + errorMessage);
+        }
+    });
+}
+
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
     // 检查当前页面是否存在工序链步骤管理表单
@@ -317,5 +519,64 @@ document.addEventListener('DOMContentLoaded', function() {
     if (cancelStepEditButton) {
         // 绑定取消编辑按钮事件
         cancelStepEditButton.addEventListener('click', resetStepForm);
+    }
+    
+    // 检查是否存在用户管理表单
+    const addUserForm = document.getElementById('add-user-form');
+    const departmentSelect = document.getElementById('department');
+    const editUserForm = document.getElementById('edit-user-form');
+    const editDepartmentSelect = document.getElementById('edit-department');
+    
+    if (addUserForm) {
+        // 绑定用户表单提交事件
+        addUserForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            addUser();
+        });
+    }
+    
+    if (departmentSelect) {
+        // 初始化角色下拉列表
+        updateRoleOptions();
+        
+        // 监听部门选择变化
+        departmentSelect.addEventListener('change', function() {
+            updateRoleOptions(departmentSelect);
+        });
+    }
+    
+    if (editUserForm) {
+        // 绑定编辑用户表单提交事件
+        editUserForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            updateUser();
+        });
+    }
+    
+    if (editDepartmentSelect) {
+        // 监听编辑表单中部门选择变化
+        editDepartmentSelect.addEventListener('change', function() {
+            updateRoleOptions(editDepartmentSelect);
+        });
+    }
+    
+    // 检查是否存在工序链管理表单
+    const addProcessChainForm = document.getElementById('add-process-chain-form');
+    const updateProcessChainForm = document.getElementById('update-process-chain-form');
+    
+    if (addProcessChainForm) {
+        // 绑定工序链表单提交事件
+        addProcessChainForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            addProcessChain();
+        });
+    }
+    
+    if (updateProcessChainForm) {
+        // 绑定工序链更新表单提交事件
+        updateProcessChainForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            updateProcessChain();
+        });
     }
 });

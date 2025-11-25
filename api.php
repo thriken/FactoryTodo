@@ -148,7 +148,7 @@ function handlePostRequest($action) {
             $fullName = $_POST['full_name'] ?? '';
             $role = $_POST['role'] ?? 'observer';
             $department = $_POST['department'] ?? 'cutting';
-            // 不再处理is_main_manager参数，因为已经移除了相关UI元素
+            $isMainManager = isset($_POST['is_main_manager']) ? true : false;
             
             // 验证必填字段
             if (empty($username) || empty($password) || empty($fullName)) {
@@ -179,8 +179,8 @@ function handlePostRequest($action) {
                 return;
             }
             
-            // 调用添加用户函数，isMainManager参数默认为false
-            $userId = addUser($username, $password, $fullName, $role, $department);
+            // 调用添加用户函数
+            $userId = addUser($username, $password, $fullName, $role, $department, $isMainManager);
             if ($userId) {
                 echo json_encode(['success' => true, 'data' => ['id' => $userId]]);
             } else {
@@ -188,6 +188,82 @@ function handlePostRequest($action) {
                 echo json_encode(['success' => false, 'error' => '添加用户失败']);
                 if (DEBUG_MODE) {
                     logError("添加用户失败: 数据库操作失败");
+                }
+            }
+            break;
+            
+        case 'update_user':
+            $userId = $_POST['user_id'] ?? '';
+            $username = $_POST['username'] ?? '';
+            $fullName = $_POST['full_name'] ?? '';
+            $role = $_POST['role'] ?? 'observer';
+            $department = $_POST['department'] ?? 'cutting';
+            $isMainManager = isset($_POST['is_main_manager']) ? true : false;
+            
+            // 验证必填字段
+            if (empty($userId) || empty($username) || empty($fullName)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '请填写必填字段']);
+                if (DEBUG_MODE) {
+                    logError("更新用户失败: 必填字段为空");
+                }
+                return;
+            }
+            
+            // 验证角色和部门是否有效
+            if (!array_key_exists($role, ROLES)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '无效的角色']);
+                if (DEBUG_MODE) {
+                    logError("更新用户失败: 无效的角色 $role");
+                }
+                return;
+            }
+            
+            if (!array_key_exists($department, DEPARTMENTS)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '无效的部门']);
+                if (DEBUG_MODE) {
+                    logError("更新用户失败: 无效的部门 $department");
+                }
+                return;
+            }
+            
+            // 调用更新用户函数
+            $result = updateUser($userId, $username, $fullName, $role, $department, $isMainManager);
+            if ($result) {
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '更新用户失败']);
+                if (DEBUG_MODE) {
+                    logError("更新用户失败: 数据库操作失败");
+                }
+            }
+            break;
+            
+        case 'delete_user':
+            $userId = $_POST['user_id'] ?? '';
+            
+            // 验证必填字段
+            if (empty($userId)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '缺少用户ID']);
+                if (DEBUG_MODE) {
+                    logError("删除用户失败: 缺少用户ID");
+                }
+                return;
+            }
+            
+            // 调用删除用户函数
+            $result = deleteUser($userId);
+            if ($result) {
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '删除用户失败']);
+                if (DEBUG_MODE) {
+                    logError("删除用户失败: 数据库操作失败");
                 }
             }
             break;
@@ -478,6 +554,134 @@ function handlePostRequest($action) {
                 echo json_encode(['success' => false, 'error' => '更新任务状态失败']);
                 if (DEBUG_MODE) {
                     logError("更新任务状态失败: 数据库操作失败");
+                }
+            }
+            break;
+            
+        case 'delete_task':
+            $taskId = $_POST['task_id'] ?? '';
+            
+            // 验证必填字段
+            if (empty($taskId)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '缺少任务ID']);
+                if (DEBUG_MODE) {
+                    logError("删除任务失败: 缺少任务ID");
+                }
+                return;
+            }
+            
+            // 检查用户权限 - 只有管理员可以删除任务
+            if (!canManageTasks($_SESSION['role'] ?? '')) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => '您没有权限删除任务']);
+                if (DEBUG_MODE) {
+                    logError("删除任务失败: 用户没有权限 " . ($_SESSION['role'] ?? 'guest'));
+                }
+                return;
+            }
+            
+            // 检查任务是否可以删除（只有未开工的任务才能删除）
+            $task = getTaskById($taskId);
+            if (!$task) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => '任务不存在']);
+                if (DEBUG_MODE) {
+                    logError("删除任务失败: 任务不存在 $taskId");
+                }
+                return;
+            }
+            
+            // 检查是否有工序步骤已经开始处理
+            if ($task['status'] !== 'pending') {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '只能删除未开工的任务']);
+                if (DEBUG_MODE) {
+                    logError("删除任务失败: 任务状态不是待处理 " . $task['status']);
+                }
+                return;
+            }
+            
+            // 检查是否有工序步骤已经开始处理
+            global $db;
+            $stmt = $db->debugQuery("SELECT COUNT(*) as count FROM todo_steps 
+                                    WHERE todo_id = ? 
+                                    AND status IN ('in-progress', 'completed')", 
+                                   [$taskId]);
+            
+            if ($stmt && ($row = $stmt->fetch()) && $row['count'] > 0) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '任务已经开始处理，不能删除']);
+                if (DEBUG_MODE) {
+                    logError("删除任务失败: 任务已经开始处理");
+                }
+                return;
+            }
+            
+            // 删除任务
+            $result = deleteTask($taskId);
+            if ($result) {
+                echo json_encode(['success' => true]);
+            } else {
+                http_response_code(500);
+                echo json_encode(['success' => false, 'error' => '删除任务失败']);
+                if (DEBUG_MODE) {
+                    logError("删除任务失败: 数据库操作失败");
+                }
+            }
+            break;
+
+        case 'update_task_step_status':
+            $stepId = $_POST['step_id'] ?? '';
+            $status = $_POST['status'] ?? '';
+            
+            // 验证必填字段
+            if (empty($stepId) || empty($status)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '缺少必要参数']);
+                if (DEBUG_MODE) {
+                    logError("更新任务步骤失败: 缺少必要参数");
+                }
+                return;
+            }
+            
+            // 验证状态是否有效
+            if (!array_key_exists($status, PROCESS_STATUS)) {
+                http_response_code(400);
+                echo json_encode(['success' => false, 'error' => '无效的状态']);
+                if (DEBUG_MODE) {
+                    logError("更新任务步骤失败: 无效的状态 $status");
+                }
+                return;
+            }
+            
+            // 检查用户权限
+            if (isset($_SESSION['role']) && !canUpdateTaskProgress($_SESSION['role'])) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => '您没有权限更新任务步骤']);
+                if (DEBUG_MODE) {
+                    logError("更新任务步骤失败: 用户没有权限 " . $_SESSION['role']);
+                }
+                return;
+            }
+            
+            try {
+                $result = updateTaskStepStatus($stepId, $status);
+                if ($result) {
+                    echo json_encode(['success' => true]);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => '更新任务步骤状态失败']);
+                    if (DEBUG_MODE) {
+                        logError("更新任务步骤失败: 数据库操作失败");
+                    }
+                }
+            } catch (Exception $e) {
+                // 工序依赖检查失败等业务逻辑错误视为"成功"响应，但状态为失败
+                // 这样可以避免浏览器控制台显示错误信息，同时保持正确的业务逻辑
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                if (DEBUG_MODE) {
+                    logError("更新任务步骤失败: " . $e->getMessage());
                 }
             }
             break;

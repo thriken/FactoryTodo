@@ -1,0 +1,180 @@
+/* ... existing code ... */
+
+/* 标签页样式 */
+.tab-button {
+    color: #6b7280;
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+    color: #374151;
+    background-color: #f3f4f6;
+}
+
+.tab-button.active {
+    color: #2563eb;
+    background-color: #dbeafe;
+    border-bottom: 2px solid #2563eb;
+}
+
+/* 任务卡片样式优化 */
+.task-card {
+    transition: all 0.2s ease;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background-color: #fff;
+}
+
+.task-card:hover {
+    background-color: #f9fafb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 移动端优化 */
+@media (max-width: 640px) {
+    .container {
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
+    
+    .task-card {
+        padding: 0.5rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .task-title {
+        font-size: 0.75rem;
+        line-height: 1rem;
+    }
+    
+    .task-description {
+        font-size: 0.625rem;
+        line-height: 0.875rem;
+    }
+    
+    .tag {
+        font-size: 0.5rem;
+        padding: 0.125rem 0.25rem;
+    }
+    
+    .tab-button {
+        font-size: 0.625rem;
+        padding: 0.25rem 0.5rem;
+    }
+    
+    /* 确保按钮在小屏幕上也能正常显示 */
+    .btn-small {
+        font-size: 0.625rem;
+        padding: 0.125rem 0.25rem;
+    }
+    
+    /* 工序步骤显示优化 */
+    .process-step {
+        font-size: 0.625rem;
+        padding: 0.125rem 0.25rem;
+    }
+    
+    .process-step-button {
+        font-size: 0.5rem;
+        padding: 0.125rem 0.25rem;
+    }
+}
+
+/* 微信浏览器兼容性优化 */
+@supports (-webkit-touch-callout: none) {
+    /* iOS Safari 和微信浏览器 */
+    .tab-button {
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .task-card {
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    }
+}
+
+/* 确保在所有设备上都有良好的可点击区域 */
+button, .btn {
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 工序进度显示优化 */
+.process-progress-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.process-step-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+}
+
+.process-step-label {
+    font-size: 0.875rem;
+    flex: 1;
+}
+
+.process-step-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* 响应式表格 */
+.responsive-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.responsive-table th,
+.responsive-table td {
+    padding: 0.5rem;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+@media (max-width: 640px) {
+    .responsive-table thead {
+        display: none;
+    }
+    
+    .responsive-table,
+    .responsive-table tbody,
+    .responsive-table tr,
+    .responsive-table td {
+        display: block;
+        width: 100%;
+    }
+    
+    .responsive-table tr {
+        margin-bottom: 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+    }
+    
+    .responsive-table td {
+        text-align: right;
+        padding-left: 50%;
+        position: relative;
+        border: none;
+    }
+    
+    .responsive-table td::before {
+        content: attr(data-label) ": ";
+        position: absolute;
+        left: 1rem;
+        width: 45%;
+        text-align: left;
+        font-weight: bold;
+    }
+}
